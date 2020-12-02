@@ -54,6 +54,7 @@ endif()
 option(BUILD_TESTING "Build all tests." OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck." OFF)
 option(BUILD_EXAMPLES "Build all examples." OFF)
+option(BUILD_PYTHON_PACKAGE "Build wrapper for Python package" ON)
 
 ###########
 ## Build ##
@@ -153,6 +154,29 @@ install(
   DIRECTORY "${PROJECT_SOURCE_DIR}/include/${PROJECT_NAME}"
   DESTINATION include
 )
+
+
+#####################
+## Python Bindings ##
+#####################
+
+if(BUILD_PYTHON_PACKAGE)
+
+  # clone git submodule
+#  find_package(Git QUIET)
+#  if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+#    message(STATUS "git submodule update: pybind11")
+#    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+#            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+#            RESULT_VARIABLE GIT_SUBMOD_RESULT)
+#    if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+#      message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+#    endif()
+#  endif()
+
+  # python wrapper compile and install
+  add_subdirectory(python)
+endif()
 
 
 ##############
