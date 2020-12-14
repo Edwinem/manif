@@ -4,6 +4,7 @@
 #include <pybind11/eigen.h>
 
 #include "manif/SE3.h"
+#include "lt_optional.h"
 
 namespace py = pybind11;
 
@@ -38,13 +39,22 @@ void wrap_lie_group(py::class_<LieGroupType> &py_class) {
   py_class.def(py::init<>());
   py_class.def("setIdentity", &LieGroupType::setIdentity);
   py_class.def("setRandom", &LieGroupType::setRandom);
-  py_class.def("inverse", &LieGroupType::inverse);
+  py_class.def("inverse", &LieGroupType::inverse, py::arg("J_m_t")=py::none());
   py_class.def("log", &LieGroupType::log);
 //  py_class.def("compose",&LieGroupType::compose<LieGroupType>);
   //py_class.def("act",static_cast<manif::SE3d::Vector (manif::SE3d::*)(const manif::SE3d::Vector&,manif::SE3d::OptJacobianRef,manif::SE3d::OptJacobianRef)>(&LieGroupType::act));
   //py_class.def("act",&LieGroupType::act);
   py_class.def("adj", &LieGroupType::adj);
   py_class.def("compose", &LieGroupType::template compose<LieGroupType>);
+
+  py_class.def_readonly_static("DoF",&LieGroupType::DoF);
+  py_class.def_readonly_static("Dim",&LieGroupType::Dim);
+  py_class.def_readonly_static("RepSize",&LieGroupType::RepSize);
+
+
+  py_class.def_static("Identity",&LieGroupType::Identity);
+  py_class.def_static("Random",&LieGroupType::Random);
+
 }
 
 template<typename LieGroupType, typename TangentType>
@@ -54,7 +64,10 @@ void wrap_combo_funcs(py::class_<LieGroupType> &base, py::class_<TangentType> &t
   base.def("lplus", &LieGroupType::template lplus<TangentType>);
   base.def("plus", &LieGroupType::template plus<TangentType>);
   base.def("rminus", &LieGroupType::template rminus<LieGroupType>);
-  base.def("lminus", &LieGroupType::template lminus<LieGroupType>);
+  //base.def("lminus", &LieGroupType::template lminus<LieGroupType>,py::arg("m"),py::arg("J_t_ma")=py::none(),py::arg("J_t_mb")=py::none());
+  base.def("lminus", [](const LieGroupType& myself,const LieGroupType& other,typename LieGroupType::OptJacobianRef& J_t_ma,typename LieGroupType::OptJacobianRef& J_t_mb){
+    return myself.lminus(other,J_t_ma,J_t_mb);
+  },py::arg("m"),py::arg("J_t_ma")=py::none(),py::arg("J_t_mb")=py::none());
   base.def("minus", &LieGroupType::template minus<LieGroupType>);
   base.def("between", &LieGroupType::template between<LieGroupType>);
   base.def("isApprox", &LieGroupType::template isApprox<LieGroupType>);
@@ -129,7 +142,10 @@ void wrap_tanget(py::class_<TangentType> &py_class) {
   py_class.def("rjac", &TangentType::rjac);
   py_class.def("ljac", &TangentType::ljac);
   py_class.def("smallAdj", &TangentType::smallAdj);
-
+  py_class.def_static("Zero",&TangentType::Zero);
+  py_class.def_static("Random",&TangentType::Random);
+  py_class.def_static("Generator",&TangentType::Generator);
+  py_class.def_static("W",&TangentType::W);
 
   // Can't figure out how to do static_cast overload resolution and specialize with the templates. So we just set it up
   // as a lambda function, and do it manually.
@@ -162,6 +178,7 @@ PYBIND11_MODULE(PyManif, m) {
   se3d.def(py::init<const double, const double, const double,                          const double, const double, const double>());
   se3d.def(py::init<const Eigen::Transform<manif::SE3d::Scalar,3,Eigen::Isometry>>());
 
+  se3d.def("coeffs", static_cast<const typename manif::SE3d::DataType& (manif::SE3d::*)() const>(&manif::SE3d::coeffs));
   se3d.def("transform", &manif::SE3d::transform);
   se3d.def("isometry", &manif::SE3d::isometry);
   se3d.def("quat", static_cast<manif::SE3d::QuaternionDataType (manif::SE3d::*)() const>(&manif::SE3d::quat));
@@ -180,6 +197,11 @@ PYBIND11_MODULE(PyManif, m) {
   se3d.def("quat", static_cast
       <void (manif::SE3d::*)(const manif::SE3d::Translation &)>(&manif::SE3d::translation)
   );
+
+  se3d.def("act",[](const manif::SE3d& myself,const Eigen::Matrix<typename manif::SE3d::Scalar, 3, 1>& vec,tl::optional<Eigen::Ref<Eigen::Matrix<double, 3, 6>>> J_vout_m,
+                    tl::optional<Eigen::Ref<Eigen::Matrix<double, 3, 3>>> J_vout_v){
+    return myself.act(vec,J_vout_m,J_vout_v);
+  },py::arg("vec"),py::arg("J_vout_m")=py::none(),py::arg("J_vout_v")=py::none());
 
   se3d.def("__str__", [](const manif::SE3d& my_self) {
     std::stringstream ss;
